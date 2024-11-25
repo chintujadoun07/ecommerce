@@ -1,10 +1,6 @@
 {
-<<<<<<< HEAD
-    "version": 3,
-=======
     "version": 2,
->>>>>>> 526c49b8a6df64d0f0553818322c870585f3bd4d
-    "name": "Shitashops",
+    "name": "shita-shop",
     "builds": [
         {
             "src": "index.js",
