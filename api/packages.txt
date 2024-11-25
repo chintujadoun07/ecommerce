@@ -1,0 +1,1 @@
+npm i bcrypt dotenv express express-async-handler jsonwebtoken mongoose concurrently nodemon
