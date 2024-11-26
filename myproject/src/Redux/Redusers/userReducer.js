@@ -1,16 +1,12 @@
-import {
-    USER_LOGIN_REQ,
-    USER_LOGIN_REQ_FAIL,
-    USER_LOGIN_REQ_SUCCESS,
-
-    USER_LOGOUT,
+import{
     USER_REGISTER_REQ,
-    USER_REGISTER_REQ_FAIL,
     USER_REGISTER_REQ_SUCCESS,
-
-
-} from "../Constraints/User"
-
+    USER_REGISTER_REQ_FAIL,
+    USER_LOGIN_REQ,
+    USER_LOGIN_REQ_SUCCESS,
+    USER_LOGIN_REQ_FAIL,
+     USER_LOGOUT
+} from '../Constraints/user'
 
 export const userLoginReducer=(state={},action)=>{
     switch(action.type){
@@ -32,18 +28,17 @@ export const userLoginReducer=(state={},action)=>{
    
 }
 
-
-export const userRegisterReducer=(state={},action)=>{
+export const  userRegisterReducer=(state={},action)=>{
     switch(action.type){
-        case USER_REGISTER_REQ:
-            return { loading: true, userInfo: action.payload }
+        case  USER_REGISTER_REQ:
+            return {loading:true}
         case USER_REGISTER_REQ_SUCCESS:
-            return { loading: false, userInfo: action.payload };
+            return {loading:false,userInfo:action.payload}
         case USER_REGISTER_REQ_FAIL:
-            return { loading: false, error: action.payload }
-        case USER_LOGOUT:
-            return {}
-        default:
-            return state
+            return {loading:false,error:action.payload}
+        default  :
+        return state       
     }
 }
+
+
