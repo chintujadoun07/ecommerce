@@ -105,7 +105,7 @@ orderRouter.get("/:id", auth,async (req, res) => {
 // Update order status for payment
 orderRouter.put("/:order_id", auth,async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id);// req.parms.id is wrong currect req.parms.order_id
     if (order) {
       order.isPaid = true;
       order.paidAt = Date.now();
