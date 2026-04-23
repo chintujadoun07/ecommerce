@@ -1,29 +1,89 @@
 const express=require('express');
 const orderRouter=express.Router();
 const Order=require('../models/Order');
+const Product = require('../models/Product');
+const mongoose = require('mongoose');
 const auth=require('../Auth/auth')
+
+function getNumericEnv(name, fallback) {
+  const raw = process.env[name];
+  const value = raw === undefined ? fallback : Number(raw);
+
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function createBadRequest(message) {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+}
+
 orderRouter.post('/', auth, async (req, res) => {
   try {
     const {
       orderItems,
       shippingAddress,
       paymentMethod,
-      shippingPrice,
-      taxPrice,
-      totalPrice,
-      price,
     } = req.body;
-
-    console.log(orderItems);
 
     // Check if orderItems exist and are not empty
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).send({ message: 'No order items' });
     }
 
+    const productIds = orderItems.map((item) => item.product);
+    const hasInvalidProductId = productIds.some(
+      (productId) => !mongoose.Types.ObjectId.isValid(productId)
+    );
+
+    if (hasInvalidProductId) {
+      return res.status(400).send({ message: 'Invalid product in order items' });
+    }
+
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productsById = new Map(
+      products.map((product) => [String(product._id), product])
+    );
+
+    const normalizedOrderItems = orderItems.map((item) => {
+      const product = productsById.get(String(item.product));
+      const qty = Number(item.qty);
+
+      if (!product) {
+        throw createBadRequest(`Product not found: ${item.product}`);
+      }
+
+      if (!Number.isInteger(qty) || qty < 1) {
+        throw createBadRequest(`Invalid quantity for product: ${item.product}`);
+      }
+
+      if (product.countInStock < qty) {
+        throw createBadRequest(`Insufficient stock for product: ${product.name}`);
+      }
+
+      return {
+        product: product._id,
+        name: product.name,
+        image: product.image,
+        price: product.price,
+        qty,
+      };
+    });
+
+    const itemsPrice = Number(
+      normalizedOrderItems
+        .reduce((sum, item) => sum + item.price * item.qty, 0)
+        .toFixed(2)
+    );
+    const shippingBase = getNumericEnv('DEFAULT_SHIPPING_PRICE', 0);
+    const taxRate = getNumericEnv('TAX_RATE', 0);
+    const shippingPrice = itemsPrice > 0 ? shippingBase : 0;
+    const taxPrice = Number((itemsPrice * taxRate).toFixed(2));
+    const totalPrice = Number((itemsPrice + shippingPrice + taxPrice).toFixed(2));
+
     // Create a new order
     const order = new Order({
-      orderItems,
+      orderItems: normalizedOrderItems,
       user: req.userId,
       shippingAddress,
       paymentMethod,
@@ -38,7 +98,10 @@ orderRouter.post('/', auth, async (req, res) => {
     res.status(201).send({ order: newOrder });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).send({ message: 'Failed to create order', error: error.message });
+    res.status(error.statusCode || 500).send({
+      message: error.statusCode ? error.message : 'Failed to create order',
+      error: error.message,
+    });
   }
 });
 
@@ -105,7 +168,7 @@ orderRouter.get("/:id", auth,async (req, res) => {
 // Update order status for payment
 orderRouter.put("/:order_id", auth,async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);// req.parms.id is wrong currect req.parms.order_id
+    const order = await Order.findById(req.params.order_id);
     if (order) {
       order.isPaid = true;
       order.paidAt = Date.now();

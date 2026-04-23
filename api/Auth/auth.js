@@ -1,5 +1,12 @@
 const jwt = require('jsonwebtoken');
-const SECRET_KEY = process.env.SECRET_KEY || 'NOTESAPI';
+
+function getSecretKey() {
+  if (!process.env.SECRET_KEY) {
+    throw new Error('SECRET_KEY is not configured');
+  }
+
+  return process.env.SECRET_KEY;
+}
 
 const auth = (req, res, next) => {
   try {
@@ -15,7 +22,7 @@ const auth = (req, res, next) => {
     token = token.split(' ')[1];
 
     // Verify the token
-    const user = jwt.verify(token, SECRET_KEY);
+    const user = jwt.verify(token, getSecretKey());
 
     // Attach the user ID to the request object
     req.userId = user.id;

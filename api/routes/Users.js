@@ -5,8 +5,24 @@ const bcrypt = require('bcrypt');
 const auth=require('../Auth/auth')
 const jwt = require('jsonwebtoken'); // Corrected typo from 'jasonwebtoken' to 'jsonwebtoken'
 
-// Store secret key in environment variables
-const SECRET_KEY = process.env.SECRET_KEY || "NOTESAPI";
+function getSecretKey() {
+  if (!process.env.SECRET_KEY) {
+    throw new Error('SECRET_KEY is not configured');
+  }
+
+  return process.env.SECRET_KEY;
+}
+
+function sanitizeUser(user) {
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
 
 
 // register
@@ -38,9 +54,13 @@ userRouter.post('/',
           });
       
           // Generate JWT token
-          const token = jwt.sign({ email: user.email, id: user._id }, SECRET_KEY,);
+          const token = jwt.sign({ email: user.email, id: user._id }, getSecretKey());
       
-          res.status(201).json({ message: 'User registered successfully', token: token, user: user });
+          res.status(201).json({
+            message: 'User registered successfully',
+            token: token,
+            user: sanitizeUser(user),
+          });
       
         } catch (error) {
           res.status(500).json({ message: error.message });
@@ -67,10 +87,10 @@ userRouter.post('/login',async(req,res) => {
       }
     
       // Generate JWT token with expiration time
-      const token = jwt.sign({ email: existingUser.email, id: existingUser._id }, SECRET_KEY);
+      const token = jwt.sign({ email: existingUser.email, id: existingUser._id }, getSecretKey());
     
       // Send response
-      res.status(200).json({ user: existingUser, token: token });
+      res.status(200).json({ user: sanitizeUser(existingUser), token: token });
     } catch (error) {
       res.status(500).json({ message: "Error during sign-in" });
     }
@@ -82,7 +102,11 @@ userRouter.get('/profile',auth,async(req,res)=>{
   try{
 const user=await  userModel.findById(req.userId);
 
-    res.status(200).json({ user: user});
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({ user: sanitizeUser(user)});
   }catch(error){
     res.status(500).json({ message: "Error fetching user profile" });
   }

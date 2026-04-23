@@ -20,6 +20,6 @@ const productSchema=mongoose.Schema({
     price: {type: Number, required: true,default: 0},
    countInStock: {type: Number, required: true,default:0},
    //reviews:[ reviewSchema]
-},{timeStamp:true})
+},{timestamps:true})
 
 module.exports =mongoose.model("product",productSchema)

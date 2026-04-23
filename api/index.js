@@ -14,32 +14,57 @@ dotenv.config();
 const app = express();
 
 // Middleware
-const PORT = process.env.PORT || 3000;
-
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(cors());
 
+let cachedConnection = null;
+let connectionPromise = null;
 
-// MongoDB connection
-// MongoDB connection
 async function connectDb() {
-    try {
-     // console.log(process.env.MONGOOSEDB_URL); 
-      await mongoose.connect(process.env.MONGOOSEDB_URL);
-      console.log('Connected to MongoDB');
-    } catch (error) {
-      console.error('Failed to connect to MongoDB:', error.message);
-      process.exit(1);
-    }
+  if (cachedConnection || mongoose.connection.readyState === 1) {
+    cachedConnection = mongoose.connection;
+    return cachedConnection;
   }
-  connectDb();
+
+  if (!process.env.MONGOOSEDB_URL) {
+    throw new Error('MONGOOSEDB_URL is not configured');
+  }
+
+  if (!connectionPromise) {
+    connectionPromise = mongoose
+      .connect(process.env.MONGOOSEDB_URL)
+      .then(() => {
+        cachedConnection = mongoose.connection;
+        console.log('Connected to MongoDB');
+        return cachedConnection;
+      })
+      .catch((error) => {
+        connectionPromise = null;
+        throw error;
+      });
+  }
+
+  return connectionPromise;
+}
+
+async function ensureDatabaseConnection(req, res, next) {
+  try {
+    await connectDb();
+    next();
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error.message);
+    res.status(500).json({ message: 'Database connection failed' });
+  }
+}
 
 // Routes
-app.use('/api/seed', databaseSeeder);
-app.use('/api/products', productRoute);
-app.use('/api/users', userRoute);
-app.use('/api/orders', orderRoute);
+if (process.env.ALLOW_SEED === 'true') {
+  app.use('/api/seed', ensureDatabaseConnection, databaseSeeder);
+}
+app.use('/api/products', ensureDatabaseConnection, productRoute);
+app.use('/api/users', ensureDatabaseConnection, userRoute);
+app.use('/api/orders', ensureDatabaseConnection, orderRoute);
 
 // PayPal API route
 app.use('/api/config/paypal', (req, res) => {
@@ -51,7 +76,4 @@ app.get('/', (req, res) => {
   res.send('Hello from Express Server!');
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+module.exports = app;
